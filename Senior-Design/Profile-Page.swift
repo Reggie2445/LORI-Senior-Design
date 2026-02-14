@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ProfileView: View {
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
             // Profile Header
             VStack(spacing: 16) {
@@ -99,6 +100,7 @@ struct ProfileView: View {
             // Bottom Tab Bar
             TabBarView()
         }
+        }
     }
 }
 
@@ -106,11 +108,13 @@ struct TabBarView: View {
     var body: some View {
         HStack(spacing: 0) {
             // Events Tab
-            TabBarItem(
-                icon: "calendar",
-                label: "Events",
-                isSelected: false
-            )
+            NavigationLink(destination: EventsPageView()) {
+                TabBarItem(
+                    icon: "calendar",
+                    label: "Events",
+                    isSelected: false
+                )
+            }
             
             // Create Tab
             TabBarItem(
@@ -125,6 +129,15 @@ struct TabBarView: View {
                 label: "Profile",
                 isSelected: true
             )
+            
+            // Settings Tab
+            NavigationLink(destination: SettingsView()) {
+                TabBarItem(
+                    icon: "gearshape",
+                    label: "Settings",
+                    isSelected: false
+                )
+            }
         }
         .frame(height: 83)
         .background(Color.white)
