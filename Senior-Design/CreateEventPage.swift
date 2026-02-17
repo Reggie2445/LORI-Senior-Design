@@ -33,7 +33,8 @@ struct CreateEventPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // Event Photo
+                // Event Photo Selector From Apple Library
+                    
                     PhotosPicker(selection: $selectedItem, matching: .images, photoLibrary: .shared()) {
                         ZStack {
                             // Selected image (if any)
@@ -66,7 +67,9 @@ struct CreateEventPage: View {
                                 .foregroundStyle(.gray.opacity(0.3))
                                 .frame(height: 180)
                         }
+                        
                     }
+                    
                     .buttonStyle(.plain)
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .onChange(of: selectedItem) { newItem in

@@ -214,24 +214,28 @@ struct BottomTabBar: View {
                 icon: "calendar",
                 label: "Events"
             )
-
+            
             Spacer()
-
-            TabButton(
-                tab: .create,
-                selectedTab: $selectedTab,
-                icon: "plus",
-                label: "Create"
-            )
-
+            
+            NavigationLink(destination: CreateEventPage()) {
+                TabButton(
+                    tab: .create,
+                    selectedTab: $selectedTab,
+                    icon: "plus",
+                    label: "Create"
+                )
+            }
+            
             Spacer()
-
-            TabButton(
-                tab: .profile,
-                selectedTab: $selectedTab,
-                icon: "person",
-                label: "Profile"
-            )
+            
+            NavigationLink(destination: ProfileView()) {
+                TabButton(
+                    tab: .profile,
+                    selectedTab: $selectedTab,
+                    icon: "person",
+                    label: "Profile"
+                )
+            }
         }
         .padding(.horizontal, 28)
     }
