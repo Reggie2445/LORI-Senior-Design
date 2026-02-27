@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# Xcode build files
+build/
+DerivedData/
+
+# User data
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+
+# Swift Package Manager
+.build/
+Packages/
+
+# CocoaPods
+Pods/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+
+# Logs
+*.log
+
+# Xcode user data (DO NOT COMMIT)
+xcuserdata/
+*.xcuserdatad
+*.xcuserstate
+
+# Workspace user settings
+*.xcworkspace/xcuserdata/
+
+# Breakpoints
+*.xcbkptlist
+
+# macOS
+.DS_Store
+
+# Build folders
+DerivedData/
+build/
