@@ -4,25 +4,23 @@
 .DS_Store
 
 ##################################################
-# Xcode User Data (IGNORE ALL)
+# Xcode User Data (PERSONAL — NEVER COMMIT)
 ##################################################
 xcuserdata/
 *.xcuserdatad
 *.xcuserstate
-
-# workspace user data
 *.xcworkspace/xcuserdata/
 
 ##################################################
-# Breakpoints & Debugger
+# User scheme settings
+##################################################
+*.xcschememanagement.plist
+
+##################################################
+# Debugger / Breakpoints
 ##################################################
 *.xcbkptlist
 xcdebugger/
-
-##################################################
-# Scheme management (user-specific)
-##################################################
-*.xcschememanagement.plist
 
 ##################################################
 # Build folders
@@ -36,8 +34,3 @@ build/
 ##################################################
 Packages/
 .swiftpm/
-
-##################################################
-# Logs
-##################################################
-*.log
