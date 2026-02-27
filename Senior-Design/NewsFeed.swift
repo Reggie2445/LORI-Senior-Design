@@ -110,7 +110,7 @@ struct EventDetailView: View {
                         // Hero image + back button
                         ZStack(alignment: .topLeading) {
                             HeroImage(imageName: event.imageName)
-                                .frame(height: 300)
+                                .frame(height: 230)
                                 .clipped()
 
                             Button {
@@ -207,6 +207,7 @@ struct EventDetailView: View {
                 .buttonStyle(.plain)
             }
             .ignoresSafeArea(edges: .top)
+            
         } else {
             Text("Event not found")
         }
@@ -237,7 +238,7 @@ struct EventCardView: View {
 
                     Spacer()
 
-                    //show "GOING" badge if RSVPed
+                    // ✅ show "GOING" badge if RSVPed
                     if event.isRSVPed {
                         Text("GOING")
                             .font(.system(size: 12, weight: .bold))
