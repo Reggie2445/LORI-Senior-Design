@@ -117,11 +117,13 @@ struct TabBarView: View {
             }
             
             // Create Tab
-            TabBarItem(
-                icon: "plus",
-                label: "Create",
-                isSelected: false
-            )
+            NavigationLink(destination: CreateEventPage()) {
+                TabBarItem(
+                    icon: "plus",
+                    label: "Create",
+                    isSelected: false
+                )
+            }
             
             // Profile Tab
             TabBarItem(
