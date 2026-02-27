@@ -1,44 +1,43 @@
+##################################################
 # macOS
+##################################################
 .DS_Store
 
-# Xcode build files
-build/
-DerivedData/
-
-# User data
-*.xcuserstate
-*.xcworkspace/xcuserdata/
-*.xcuserdatad/
-
-# Swift Package Manager
-.build/
-Packages/
-
-# CocoaPods
-Pods/
-
-# Fastlane
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots
-
-# Logs
-*.log
-
-# Xcode user data (DO NOT COMMIT)
+##################################################
+# Xcode User Data (IGNORE ALL)
+##################################################
 xcuserdata/
 *.xcuserdatad
 *.xcuserstate
 
-# Workspace user settings
+# workspace user data
 *.xcworkspace/xcuserdata/
 
-# Breakpoints
+##################################################
+# Breakpoints & Debugger
+##################################################
 *.xcbkptlist
+xcdebugger/
 
-# macOS
-.DS_Store
+##################################################
+# Scheme management (user-specific)
+##################################################
+*.xcschememanagement.plist
 
+##################################################
 # Build folders
+##################################################
 DerivedData/
 build/
+*.build/
+
+##################################################
+# Swift Package Manager
+##################################################
+Packages/
+.swiftpm/
+
+##################################################
+# Logs
+##################################################
+*.log
