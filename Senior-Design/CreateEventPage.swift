@@ -214,19 +214,75 @@ struct CreateEventPage: View {
 
     private func createEvent() {
         guard !isCreateDisabled else { return }
+
         isCreating = true
 
-        // Simulate network call
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            print("Event created:")
-            print("Title:", eventTitle)
-            print("Description:", descriptionText)
-            print("Location:", location)
-            print("Has photo:", selectedImageData != nil)
+        // Generate Event ID
+        let eventID = UUID().uuidString
 
+        // Format Date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let formattedDate = dateFormatter.string(from: eventDate)
+
+        // Format Time
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        let formattedTime = timeFormatter.string(from: eventDate)
+
+        // Convert image to base64
+        let base64Image = selectedImageData?.base64EncodedString()
+
+        let eventPayload: [String: Any] = [
+            "Event_ID": eventID,
+            "Event_Title": eventTitle,
+            "Event_Date": formattedDate,
+            "Event_Time": formattedTime,
+            "Event_Location": location,
+            "Event_Description": descriptionText,
+            "Event_Attendance": [],
+            "image_base64": base64Image as Any
+        ]
+
+        guard let url = URL(string: "http://127.0.0.1:8080/events") else {
             isCreating = false
-            dismiss()
+            return
         }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: eventPayload)
+        } catch {
+            print("JSON encoding failed:", error)
+            isCreating = false
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                isCreating = false
+
+                if let error = error {
+                    print("Network error:", error)
+                    return
+                }
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("Invalid response")
+                    return
+                }
+
+                if httpResponse.statusCode == 201 {
+                    print("Event created successfully!")
+                    dismiss()
+                } else {
+                    print("Server error:", httpResponse.statusCode)
+                }
+            }
+        }.resume()
     }
 }
 
