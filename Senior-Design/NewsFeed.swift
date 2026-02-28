@@ -110,7 +110,7 @@ struct EventDetailView: View {
                         // Hero image + back button
                         ZStack(alignment: .topLeading) {
                             HeroImage(imageName: event.imageName)
-                                .frame(height: 300)
+                                .frame(height: 260)
                                 .clipped()
 
                             Button {
@@ -149,7 +149,7 @@ struct EventDetailView: View {
 
                             // Title
                             Text(event.title)
-                                .font(.system(size: 28, weight: .heavy))
+                                .font(.system(size: 38, weight: .heavy))
                                 .lineLimit(2)
 
                             // Date & Time card
@@ -237,7 +237,7 @@ struct EventCardView: View {
 
                     Spacer()
 
-                    //show "GOING" badge if RSVPed
+                    // Show "GOING" badge if RSVPed
                     if event.isRSVPed {
                         Text("GOING")
                             .font(.system(size: 12, weight: .bold))
