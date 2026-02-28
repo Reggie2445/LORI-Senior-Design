@@ -6,12 +6,28 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct Senior_DesignApp: App {
+
+    @StateObject private var authVM = AuthViewModel()
+
+    init() {
+        FirebaseApp.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ProfileView()
+            NavigationStack {
+                if authVM.user != nil {
+                    MainTabView()
+                        .environmentObject(authVM)
+                } else {
+                    AuthScreen()
+                        .environmentObject(authVM)
+                }
+            }
         }
     }
 }

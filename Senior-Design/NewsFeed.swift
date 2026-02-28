@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Model
 
@@ -30,37 +31,16 @@ final class EventsViewModel: ObservableObject {
             hostName: "Janhi Ong",
             title: "Summer Rooftop Party",
             description: "This is a test description",
-            dateText: "Sunday, December 14, 2025 • 20:00",
-            locationText: "Sky Lounge, Downtown LA",
-            peopleGoing: 6,
-            isRSVPed: false,
-            imageName: nil,
-            avatarName: nil
+            dateText: "Fed 14, 2025 at 20:00",
+            locationText: "Drexel CCI",
+            goingText: "6 people going",
+            imageName: nil,     // e.g. "partyHero"
+            avatarName: nil     // e.g. "sarahAvatar"
         )
     ]
 
-    func toggleRSVP(eventId: UUID) {
-        guard let index = events.firstIndex(where: { $0.id == eventId }) else { return }
-
-        if events[index].isRSVPed {
-            events[index].isRSVPed = false
-            events[index].peopleGoing = max(0, events[index].peopleGoing - 1)
-        } else {
-            events[index].isRSVPed = true
-            events[index].peopleGoing += 1
-        }
-    }
-
-    func event(by id: UUID) -> Event? {
-        events.first(where: { $0.id == id })
-    }
-}
-
-// MARK: - Main Page (List)
-
-struct EventsPageView: View {
-
-    @StateObject private var vm = EventsViewModel()
+    // Simple tab state (so the bottom bar can highlight “Events”)
+    
 
     var body: some View {
         NavigationStack {
@@ -87,128 +67,8 @@ struct EventsPageView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .navigationBarHidden(true) // keep your "no nav bar look"
-        }
-    }
-}
 
-// MARK: - Event Detail Page (RSVP Screen)
-
-struct EventDetailView: View {
-    @EnvironmentObject private var vm: EventsViewModel
-    @Environment(\.dismiss) private var dismiss
-
-    let eventId: UUID
-
-    var body: some View {
-        // Fallback safety
-        if let event = vm.event(by: eventId) {
-            ZStack(alignment: .bottom) {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-
-                        // Hero image + back button
-                        ZStack(alignment: .topLeading) {
-                            HeroImage(imageName: event.imageName)
-                                .frame(height: 260)
-                                .clipped()
-
-                            Button {
-                                dismiss()
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(12)
-                                    .background(Color.black.opacity(0.35))
-                                    .clipShape(Circle())
-                            }
-                            .padding(.top, 18)
-                            .padding(.leading, 16)
-                        }
-
-                        // White content area
-                        VStack(alignment: .leading, spacing: 18) {
-
-                            // Hosted by row
-                            HStack(spacing: 12) {
-                                Avatar(imageName: event.avatarName)
-                                    .frame(width: 44, height: 44)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Hosted by")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(.secondary)
-
-                                    Text(event.hostName)
-                                        .font(.system(size: 18, weight: .bold))
-                                }
-
-                                Spacer()
-                            }
-
-                            // Title
-                            Text(event.title)
-                                .font(.system(size: 38, weight: .heavy))
-                                .lineLimit(2)
-
-                            // Date & Time card
-                            InfoCard(
-                                icon: "calendar",
-                                title: "Date & Time",
-                                mainText: event.dateText
-                            )
-
-                            // Location card
-                            InfoCard(
-                                icon: "mappin.circle",
-                                title: "Location",
-                                mainText: event.locationText
-                            )
-
-                            // People going card (optional)
-                            InfoCard(
-                                icon: "person.2",
-                                title: "Going",
-                                mainText: "\(event.peopleGoing) people going"
-                            )
-
-                            Spacer().frame(height: 90) // space for sticky button
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.top, 18)
-                        .padding(.bottom, 24)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                        .offset(y: -22)
-                    }
-                }
-
-                // RSVP Button (sticky bottom)
-                Button {
-                    vm.toggleRSVP(eventId: eventId)
-                } label: {
-                    Text(event.isRSVPed ? "Cancel RSVP" : "RSVP to Event")
-                        .font(.system(size: 18, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.red.opacity(0.85), Color.orange.opacity(0.85)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, 18)
-                }
-                .buttonStyle(.plain)
-            }
-            .ignoresSafeArea(edges: .top)
-        } else {
-            Text("Event not found")
+            // Bottom tab bar (like the screenshot)
         }
     }
 }
@@ -373,6 +233,10 @@ struct Avatar: View {
         .clipShape(Circle())
     }
 }
+
+// MARK: - Bottom Tab Bar
+
+
 
 // MARK: - Preview
 
