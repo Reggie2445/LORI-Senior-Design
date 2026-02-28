@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Model
 
@@ -37,7 +38,7 @@ struct EventsPageView: View {
     ]
 
     // Simple tab state (so the bottom bar can highlight “Events”)
-    @State private var selectedTab: Tab = .events
+    
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,10 +64,6 @@ struct EventsPageView: View {
             }
 
             // Bottom tab bar (like the screenshot)
-            Divider()
-            BottomTabBar(selectedTab: $selectedTab)
-                .padding(.vertical, 10)
-                .background(Color(.systemBackground))
         }
     }
 }
@@ -199,70 +196,7 @@ struct Avatar: View {
 
 // MARK: - Bottom Tab Bar
 
-enum Tab: String {
-    case events, create, profile
-}
 
-struct BottomTabBar: View {
-    @Binding var selectedTab: Tab
-
-    var body: some View {
-        HStack {
-            TabButton(
-                tab: .events,
-                selectedTab: $selectedTab,
-                icon: "calendar",
-                label: "Events"
-            )
-            
-            Spacer()
-            
-            NavigationLink(destination: CreateEventPage()) {
-                TabButton(
-                    tab: .create,
-                    selectedTab: $selectedTab,
-                    icon: "plus",
-                    label: "Create"
-                )
-            }
-            
-            Spacer()
-            
-            NavigationLink(destination: ProfileView()) {
-                TabButton(
-                    tab: .profile,
-                    selectedTab: $selectedTab,
-                    icon: "person",
-                    label: "Profile"
-                )
-            }
-        }
-        .padding(.horizontal, 28)
-    }
-}
-
-struct TabButton: View {
-    let tab: Tab
-    @Binding var selectedTab: Tab
-    let icon: String
-    let label: String
-
-    var body: some View {
-        Button {
-            selectedTab = tab
-        } label: {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
-
-                Text(label)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(selectedTab == tab ? Color.red : Color.gray)
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 // MARK: - Preview
 
