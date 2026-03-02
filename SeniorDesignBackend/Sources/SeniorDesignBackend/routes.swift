@@ -36,7 +36,8 @@ func routes(_ app: Application) throws {
                     body: .data(imageData),
                     bucket: bucket,
                     contentType: "image/jpeg",
-                    key: key
+                    key: key,
+                    serverSideEncryption: .aes256 
                 )
             )
 
