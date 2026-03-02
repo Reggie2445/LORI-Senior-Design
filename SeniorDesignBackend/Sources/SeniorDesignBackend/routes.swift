@@ -26,6 +26,10 @@ func routes(_ app: Application) throws {
             "Event_Attendance": .l(event.Event_Attendance.map { .s($0) })
         ]
 
+        if let userUID = event.User_UID, !userUID.isEmpty {
+            item["User_UID"] = .s(userUID)
+        }
+
         if let base64 = event.image_base64,
            let imageData = Data(base64Encoded: base64) {
 
@@ -79,8 +83,16 @@ func routes(_ app: Application) throws {
                 return []
             }
 
+            func optionalStringValue(_ key: String) -> String? {
+                if case let .s(value)? = item[key] {
+                    return value
+                }
+                return nil
+            }
+
             return Event(
                 Event_ID: stringValue("Event_ID"),
+                User_UID: optionalStringValue("User_UID"),
                 Event_Title: stringValue("Event_Title"),
                 Event_Date: stringValue("Event_Date"),
                 Event_Time: stringValue("Event_Time"),
