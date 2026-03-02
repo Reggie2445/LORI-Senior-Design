@@ -31,16 +31,20 @@ final class EventsViewModel: ObservableObject {
             hostName: "Janhi Ong",
             title: "Summer Rooftop Party",
             description: "This is a test description",
-            dateText: "Fed 14, 2025 at 20:00",
+            dateText: "Feb 14, 2025 at 20:00",
             locationText: "Drexel CCI",
-            goingText: "6 people going",
+            peopleGoing: 6,
+            isRSVPed: false,
             imageName: nil,     // e.g. "partyHero"
             avatarName: nil     // e.g. "sarahAvatar"
         )
     ]
+}
 
-    // Simple tab state (so the bottom bar can highlight “Events”)
-    
+// MARK: - Events Page (Main View)
+
+struct EventsPageView: View {
+    @StateObject private var vm = EventsViewModel()
 
     var body: some View {
         NavigationStack {
@@ -70,6 +74,37 @@ final class EventsViewModel: ObservableObject {
 
             // Bottom tab bar (like the screenshot)
         }
+    }
+}
+
+// MARK: - Event Detail (Stub so the file compiles)
+
+struct EventDetailView: View {
+    let eventId: UUID
+    @EnvironmentObject var vm: EventsViewModel
+
+    var body: some View {
+        // Simple placeholder: shows the selected event title if found
+        let event = vm.events.first { $0.id == eventId }
+
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                // If you want a custom back button later, you can add @Environment(\.dismiss)
+            } label: {
+                Text("Back")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+
+            Text(event?.title ?? "Event")
+                .font(.system(size: 28, weight: .bold))
+
+            Text(event?.description ?? "")
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+        .padding(16)
     }
 }
 
