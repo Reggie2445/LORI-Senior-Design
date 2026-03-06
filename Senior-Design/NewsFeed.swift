@@ -451,6 +451,7 @@ struct EventDetailView: View {
             rsvpButton
         }
         .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if let event {
                 localPeopleGoing = event.peopleGoing
