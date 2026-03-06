@@ -353,33 +353,284 @@ struct EventsPageView: View {
 
 // MARK: - Event Detail (Stub so the file compiles)
 
+// MARK: - Event Detail View
+// Drop this in to replace the existing EventDetailView stub in your project.
+// It matches the screenshot: hero image, host row, title, info cards, RSVP button.
+
+import SwiftUI
+
 struct EventDetailView: View {
     let eventId: String
     @EnvironmentObject var vm: EventsViewModel
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
-        // Simple placeholder: shows the selected event title if found
-        let event = vm.events.first { $0.id == eventId }
+    // RSVP state
+    @State private var rsvpState: RSVPState = .idle
+    @State private var localPeopleGoing: Int? = nil
 
-        VStack(alignment: .leading, spacing: 12) {
+    private var event: Event? {
+        vm.events.first { $0.id == eventId }
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+
+                    // HERO IMAGE
+                    heroSection
+
+                    // CONTENT
+                    VStack(alignment: .leading, spacing: 20) {
+
+                        // Host row
+                        if let event {
+                            HStack(spacing: 10) {
+                                Avatar(imageName: event.avatarName)
+                                    .frame(width: 40, height: 40)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Hosted by")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                    Text(event.hostName)
+                                        .font(.system(size: 16, weight: .semibold))
+                                }
+
+                                Spacer()
+
+                                // Attendance badge
+                                HStack(spacing: 4) {
+                                    Image(systemName: "person.2.fill")
+                                        .font(.system(size: 12))
+                                    Text("\(localPeopleGoing ?? event.peopleGoing) going")
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Capsule())
+                            }
+
+                            // Title
+                            Text(event.title)
+                                .font(.system(size: 28, weight: .bold))
+
+                            // Description
+                            if !event.description.isEmpty {
+                                Text(event.description)
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(.secondary)
+                                    .lineSpacing(4)
+                            }
+
+                            // Info cards
+                            VStack(spacing: 10) {
+                                InfoCard(
+                                    icon: "calendar",
+                                    title: "Date & Time",
+                                    mainText: event.dateText
+                                )
+                                InfoCard(
+                                    icon: "mappin.and.ellipse",
+                                    title: "Location",
+                                    mainText: event.locationText
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 120) // space for the fixed RSVP button
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+
+            // FIXED RSVP BUTTON
+            rsvpButton
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            if let event {
+                localPeopleGoing = event.peopleGoing
+                rsvpState = event.isRSVPed ? .confirmed : .idle
+            }
+        }
+    }
+
+    // MARK: - Hero Section
+
+    private var heroSection: some View {
+        ZStack(alignment: .topLeading) {
+            if let event {
+                HeroImage(imageURL: event.photoURL)
+                    .frame(height: 320)
+                    .clipped()
+            }
+
+            // Back button
             Button {
                 dismiss()
             } label: {
-                Text("Back")
-                    .font(.system(size: 16, weight: .semibold))
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
             }
-
-            Text(event?.title ?? "Event")
-                .font(.system(size: 28, weight: .bold))
-
-            Text(event?.description ?? "")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-
-            Spacer()
+            .padding(.top, 56)
+            .padding(.leading, 20)
         }
-        .padding(16)
+    }
+
+    // MARK: - RSVP Button
+
+    private var rsvpButton: some View {
+        VStack(spacing: 0) {
+            // Subtle fade above button
+            LinearGradient(
+                colors: [Color(.systemBackground).opacity(0), Color(.systemBackground)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 30)
+
+            Button {
+                Task { await handleRSVP() }
+            } label: {
+                HStack(spacing: 8) {
+                    if rsvpState == .loading {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.9)
+                    } else if rsvpState == .confirmed {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    Text(rsvpState.label)
+                        .font(.system(size: 17, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(rsvpState.gradient)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: Color.orange.opacity(rsvpState == .confirmed ? 0 : 0.35), radius: 12, x: 0, y: 6)
+                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: rsvpState)
+            }
+            .disabled(rsvpState == .loading || rsvpState == .confirmed)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 36)
+            .background(Color(.systemBackground))
+        }
+    }
+
+    // MARK: - RSVP Logic
+
+    private func handleRSVP() async {
+        guard let event, rsvpState == .idle else { return }
+        rsvpState = .loading
+
+        // --- POST to your Lambda RSVP endpoint ---
+        // Update the URL below to your actual RSVP Lambda endpoint.
+        // Expected body: { "Event_ID": "<id>", "User_ID": "<userId>" }
+        let rsvpURLString = "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default/EventRSVPLambda"
+
+        guard let url = URL(string: rsvpURLString) else {
+            rsvpState = .idle
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "Event_ID": event.id,
+            "User_ID": "current_user" // Replace with your actual auth user ID
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+
+            if (200...299).contains(statusCode) {
+                // Success — update local state
+                localPeopleGoing = (localPeopleGoing ?? event.peopleGoing) + 1
+                rsvpState = .confirmed
+
+                // Sync back into the ViewModel so the card shows "GOING"
+                if let idx = vm.events.firstIndex(where: { $0.id == eventId }) {
+                    vm.events[idx].isRSVPed = true
+                    vm.events[idx].peopleGoing += 1
+                }
+            } else {
+                rsvpState = .idle
+            }
+        } catch {
+            rsvpState = .idle
+        }
+    }
+}
+
+// MARK: - RSVP State
+
+enum RSVPState: Equatable {
+    case idle, loading, confirmed
+
+    var label: String {
+        switch self {
+        case .idle:      return "RSVP to Event"
+        case .loading:   return "Saving..."
+        case .confirmed: return "You're Going! 🎉"
+        }
+    }
+
+    var gradient: LinearGradient {
+        switch self {
+        case .idle, .loading:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.45, blue: 0.3), Color(red: 1.0, green: 0.25, blue: 0.15)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        case .confirmed:
+            return LinearGradient(
+                colors: [Color.green, Color(red: 0.1, green: 0.75, blue: 0.4)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    NavigationStack {
+        EventDetailView(eventId: "preview-1")
+            .environmentObject({
+                let vm = EventsViewModel()
+                vm.events = [
+                    Event(
+                        id: "preview-1",
+                        hostName: "Sarah Chen",
+                        title: "Summer Rooftop Party",
+                        description: "Join us for an unforgettable night under the stars with great music, drinks, and vibes.",
+                        dateText: "Sunday, December 14, 2025 at 20:00",
+                        locationText: "Sky Lounge, Downtown LA",
+                        peopleGoing: 42,
+                        isRSVPed: false,
+                        photoURL: nil,
+                        avatarName: nil
+                    )
+                ]
+                return vm
+            }())
     }
 }
 
