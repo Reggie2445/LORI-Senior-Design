@@ -4,12 +4,14 @@ import UIKit
 // MARK: - Data Model
 
 struct Event: Identifiable {
-    let id: UUID
+    let id: String
     let hostName: String
     let title: String
     let description: String
     let dateText: String
     let locationText: String
+    let imageURL: URL?
+    let startDate: Date?
 
     // RSVP State
     var peopleGoing: Int
@@ -22,23 +24,141 @@ struct Event: Identifiable {
     let avatarName: String?
 }
 
+private struct APIEvent: Decodable {
+    let Event_ID: String
+    let User_UID: String?
+    let Photo_Key: String?
+    let Event_Title: String
+    let Event_Date: String
+    let Event_Time: String
+    let Event_Location: String
+    let Event_Description: String
+    let Event_Attendance: [String]
+}
+
 // MARK: - ViewModel (shared state)
 
 final class EventsViewModel: ObservableObject {
-    @Published var events: [Event] = [
-        Event(
-            id: UUID(),
-            hostName: "Janhi Ong",
-            title: "Summer Rooftop Party",
-            description: "This is a test description",
-            dateText: "Feb 14, 2025 at 20:00",
-            locationText: "Drexel CCI",
-            peopleGoing: 6,
-            isRSVPed: false,
-            imageName: nil,     // e.g. "partyHero"
-            avatarName: nil     // e.g. "sarahAvatar"
-        )
-    ]
+    @Published var events: [Event] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    private let eventDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let eventTime24HourFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+    private let eventTime24HourSecondsFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+    private let eventTime12HourInputFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+    private let eventTimeStandardFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+
+    @MainActor
+    func loadEvents() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            guard let url = URL(string: "http://127.0.0.1:8080/events") else {
+                throw URLError(.badURL)
+            }
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw URLError(.badServerResponse)
+            }
+
+            let apiEvents = try JSONDecoder().decode([APIEvent].self, from: data)
+            let now = Date()
+            events = apiEvents.compactMap { item in
+                let encodedID = item.Event_ID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.Event_ID
+                let eventStartDate = parseEventStartDate(date: item.Event_Date, time: item.Event_Time)
+                if let eventStartDate, eventStartDate < now {
+                    return nil
+                }
+                return Event(
+                    id: item.Event_ID,
+                    hostName: "Host",
+                    title: item.Event_Title,
+                    description: item.Event_Description,
+                    dateText: "\(item.Event_Date) at \(formatStandardTime(item.Event_Time))",
+                    locationText: item.Event_Location,
+                    imageURL: URL(string: "http://127.0.0.1:8080/events/\(encodedID)/photo"),
+                    startDate: eventStartDate,
+                    peopleGoing: item.Event_Attendance.count,
+                    isRSVPed: false,
+                    imageName: nil,
+                    avatarName: nil
+                )
+            }.sorted { lhs, rhs in
+                switch (lhs.startDate, rhs.startDate) {
+                case let (left?, right?):
+                    return left < right
+                case (.some, nil):
+                    return true
+                case (nil, .some):
+                    return false
+                case (nil, nil):
+                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                }
+            }
+            isLoading = false
+        } catch is CancellationError {
+            isLoading = false
+        } catch {
+            isLoading = false
+            errorMessage = "Could not load events."
+            print("Failed to fetch events:", error)
+        }
+    }
+
+    private func parseEventStartDate(date: String, time: String) -> Date? {
+        guard let day = eventDateFormatter.date(from: date) else { return nil }
+        let parsedTime = eventTime24HourFormatter.date(from: time)
+            ?? eventTime24HourSecondsFormatter.date(from: time)
+            ?? eventTime12HourInputFormatter.date(from: time)
+        guard let parsedTime else { return nil }
+
+        let calendar = Calendar.current
+        let dayParts = calendar.dateComponents([.year, .month, .day], from: day)
+        let timeParts = calendar.dateComponents([.hour, .minute], from: parsedTime)
+        return calendar.date(from: DateComponents(
+            year: dayParts.year,
+            month: dayParts.month,
+            day: dayParts.day,
+            hour: timeParts.hour,
+            minute: timeParts.minute
+        ))
+    }
+
+    private func formatStandardTime(_ time: String) -> String {
+        if let date = eventTime24HourFormatter.date(from: time)
+            ?? eventTime24HourSecondsFormatter.date(from: time)
+            ?? eventTime12HourInputFormatter.date(from: time) {
+            return eventTimeStandardFormatter.string(from: date)
+        }
+        return time
+    }
 }
 
 // MARK: - Events Page (Main View)
@@ -55,16 +175,31 @@ struct EventsPageView: View {
                         .font(.system(size: 34, weight: .bold))
                         .padding(.top, 12)
 
-                    ForEach(vm.events) { event in
-                        // Tap card -> go to detail page
-                        NavigationLink {
-                            EventDetailView(eventId: event.id)
-                                .environmentObject(vm)
-                                .navigationBarBackButtonHidden(true)
-                        } label: {
-                            EventCardView(event: event)
+                    if vm.isLoading {
+                        ProgressView("Loading events...")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                    } else if let error = vm.errorMessage {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                    } else if vm.events.isEmpty {
+                        Text("No events found.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                    } else {
+                        ForEach(vm.events) { event in
+                            // Tap card -> go to detail page
+                            NavigationLink {
+                                EventDetailView(eventId: event.id)
+                                    .environmentObject(vm)
+                            } label: {
+                                EventCardView(event: event)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     Spacer().frame(height: 12)
@@ -74,37 +209,51 @@ struct EventsPageView: View {
 
             // Bottom tab bar (like the screenshot)
         }
+        .task {
+            await vm.loadEvents()
+        }
     }
 }
 
 // MARK: - Event Detail (Stub so the file compiles)
 
 struct EventDetailView: View {
-    let eventId: UUID
+    let eventId: String
     @EnvironmentObject var vm: EventsViewModel
 
     var body: some View {
-        // Simple placeholder: shows the selected event title if found
         let event = vm.events.first { $0.id == eventId }
 
-        VStack(alignment: .leading, spacing: 12) {
-            Button {
-                // If you want a custom back button later, you can add @Environment(\.dismiss)
-            } label: {
-                Text("Back")
-                    .font(.system(size: 16, weight: .semibold))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HeroImage(imageName: event?.imageName, imageURL: event?.imageURL)
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                Text(event?.title ?? "Event")
+                    .font(.system(size: 30, weight: .bold))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    DetailRow(icon: "calendar", text: event?.dateText ?? "Date unavailable")
+                    DetailRow(icon: "mappin.and.ellipse", text: event?.locationText ?? "Location unavailable")
+                    DetailRow(icon: "person.2", text: "\(event?.peopleGoing ?? 0) people going")
+                }
+                .padding(12)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                Text("About")
+                    .font(.system(size: 20, weight: .semibold))
+
+                Text(event?.description.isEmpty == false ? event?.description ?? "" : "No description provided.")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text(event?.title ?? "Event")
-                .font(.system(size: 28, weight: .bold))
-
-            Text(event?.description ?? "")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-
-            Spacer()
+            .padding(16)
         }
-        .padding(16)
+        .navigationTitle("Event Details")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -116,7 +265,7 @@ struct EventCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            HeroImage(imageName: event.imageName)
+            HeroImage(imageName: event.imageName, imageURL: event.imageURL)
                 .frame(height: 190)
                 .clipped()
 
@@ -223,26 +372,46 @@ struct DetailRow: View {
 
 struct HeroImage: View {
     let imageName: String?
+    let imageURL: URL?
 
     var body: some View {
         ZStack {
-            if let imageName, let uiImage = UIImage(named: imageName) {
+            if let imageURL {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty:
+                        ProgressView()
+                    case .failure:
+                        fallbackView
+                    @unknown default:
+                        fallbackView
+                    }
+                }
+            } else if let imageName, let uiImage = UIImage(named: imageName) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {
-                LinearGradient(
-                    colors: [Color.black.opacity(0.25), Color.purple.opacity(0.25), Color.blue.opacity(0.25)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .overlay(
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-                )
+                fallbackView
             }
         }
+    }
+
+    private var fallbackView: some View {
+        LinearGradient(
+            colors: [Color.black.opacity(0.25), Color.purple.opacity(0.25), Color.blue.opacity(0.25)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(
+            Image(systemName: "sparkles")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+        )
     }
 }
 
