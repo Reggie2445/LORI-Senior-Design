@@ -13,59 +13,57 @@ struct Event: Identifiable {
     let imageURL: URL?
     let startDate: Date?
 
-    // RSVP State
     var peopleGoing: Int
     var isRSVPed: Bool
-
-    /// If you put images in Assets.xcassets, set this to that asset name
-    let imageName: String?
-
-    /// If you put avatar images in Assets.xcassets, set this to that asset name
     let avatarName: String?
 }
 
 private struct APIEvent: Decodable {
     let Event_ID: String
-    let User_UID: String?
-    let Photo_Key: String?
     let Event_Title: String
+    let Event_Description: String
     let Event_Date: String
     let Event_Time: String
     let Event_Location: String
-    let Event_Description: String
     let Event_Attendance: [String]
 }
 
-// MARK: - ViewModel (shared state)
+// MARK: - ViewModel
 
+@MainActor
 final class EventsViewModel: ObservableObject {
     @Published var events: [Event] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+
     private let eventDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
+
     private let eventTime24HourFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+
     private let eventTime24HourSecondsFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "HH:mm:ss"
         return formatter
     }()
+
     private let eventTime12HourInputFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "h:mm a"
         return formatter
     }()
+
     private let eventTimeStandardFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -73,7 +71,6 @@ final class EventsViewModel: ObservableObject {
         return formatter
     }()
 
-    @MainActor
     func loadEvents() async {
         isLoading = true
         errorMessage = nil
@@ -82,6 +79,7 @@ final class EventsViewModel: ObservableObject {
             guard let url = URL(string: "http://127.0.0.1:8080/events") else {
                 throw URLError(.badURL)
             }
+
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
@@ -90,12 +88,14 @@ final class EventsViewModel: ObservableObject {
 
             let apiEvents = try JSONDecoder().decode([APIEvent].self, from: data)
             let now = Date()
+
             events = apiEvents.compactMap { item in
-                let encodedID = item.Event_ID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.Event_ID
-                let eventStartDate = parseEventStartDate(date: item.Event_Date, time: item.Event_Time)
-                if let eventStartDate, eventStartDate < now {
+                let startDate = parseEventStartDate(date: item.Event_Date, time: item.Event_Time)
+                if let startDate, startDate < now {
                     return nil
                 }
+
+                let encodedID = item.Event_ID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.Event_ID
                 return Event(
                     id: item.Event_ID,
                     hostName: "Host",
@@ -104,10 +104,9 @@ final class EventsViewModel: ObservableObject {
                     dateText: "\(item.Event_Date) at \(formatStandardTime(item.Event_Time))",
                     locationText: item.Event_Location,
                     imageURL: URL(string: "http://127.0.0.1:8080/events/\(encodedID)/photo"),
-                    startDate: eventStartDate,
+                    startDate: startDate,
                     peopleGoing: item.Event_Attendance.count,
                     isRSVPed: false,
-                    imageName: nil,
                     avatarName: nil
                 )
             }.sorted { lhs, rhs in
@@ -122,6 +121,7 @@ final class EventsViewModel: ObservableObject {
                     return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                 }
             }
+
             isLoading = false
         } catch is CancellationError {
             isLoading = false
@@ -161,7 +161,7 @@ final class EventsViewModel: ObservableObject {
     }
 }
 
-// MARK: - Events Page (Main View)
+// MARK: - Events Page
 
 struct EventsPageView: View {
     @StateObject private var vm = EventsViewModel()
@@ -170,7 +170,6 @@ struct EventsPageView: View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
-
                     Text("Events")
                         .font(.system(size: 34, weight: .bold))
                         .padding(.top, 12)
@@ -191,7 +190,6 @@ struct EventsPageView: View {
                             .padding(.vertical, 24)
                     } else {
                         ForEach(vm.events) { event in
-                            // Tap card -> go to detail page
                             NavigationLink {
                                 EventDetailView(eventId: event.id)
                                     .environmentObject(vm)
@@ -206,8 +204,6 @@ struct EventsPageView: View {
                 }
                 .padding(.horizontal, 16)
             }
-
-            // Bottom tab bar (like the screenshot)
         }
         .task {
             await vm.loadEvents()
@@ -215,7 +211,7 @@ struct EventsPageView: View {
     }
 }
 
-// MARK: - Event Detail (Stub so the file compiles)
+// MARK: - Event Detail
 
 struct EventDetailView: View {
     let eventId: String
@@ -226,7 +222,7 @@ struct EventDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HeroImage(imageName: event?.imageName, imageURL: event?.imageURL)
+                HeroImage(imageURL: event?.imageURL)
                     .frame(height: 240)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
@@ -257,20 +253,18 @@ struct EventDetailView: View {
     }
 }
 
-// MARK: - Event Card (List)
+// MARK: - Event Card
 
 struct EventCardView: View {
     let event: Event
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-
-            HeroImage(imageName: event.imageName, imageURL: event.imageURL)
+            HeroImage(imageURL: event.imageURL)
                 .frame(height: 190)
                 .clipped()
 
             VStack(alignment: .leading, spacing: 10) {
-
                 HStack(spacing: 10) {
                     Avatar(imageName: event.avatarName)
                         .frame(width: 28, height: 28)
@@ -281,7 +275,6 @@ struct EventCardView: View {
 
                     Spacer()
 
-                    // Show "GOING" badge if RSVPed
                     if event.isRSVPed {
                         Text("GOING")
                             .font(.system(size: 12, weight: .bold))
@@ -307,7 +300,6 @@ struct EventCardView: View {
                     DetailRow(icon: "person.2", text: "\(event.peopleGoing) people going")
                 }
                 .padding(.top, 2)
-
             }
             .padding(14)
         }
@@ -317,38 +309,7 @@ struct EventCardView: View {
     }
 }
 
-// MARK: - Small Reusable Pieces
-
-struct InfoCard: View {
-    let icon: String
-    let title: String
-    let mainText: String
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Color.red.opacity(0.85))
-                .frame(width: 44, height: 44)
-                .background(Color.red.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-
-                Text(mainText)
-                    .font(.system(size: 18, weight: .bold))
-            }
-
-            Spacer()
-        }
-        .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
+// MARK: - Reusable Pieces
 
 struct DetailRow: View {
     let icon: String
@@ -371,7 +332,6 @@ struct DetailRow: View {
 }
 
 struct HeroImage: View {
-    let imageName: String?
     let imageURL: URL?
 
     var body: some View {
@@ -383,25 +343,17 @@ struct HeroImage: View {
                         image
                             .resizable()
                             .scaledToFill()
-                    case .empty:
-                        ProgressView()
-                    case .failure:
-                        fallbackView
-                    @unknown default:
-                        fallbackView
+                    default:
+                        placeholder
                     }
                 }
-            } else if let imageName, let uiImage = UIImage(named: imageName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
             } else {
-                fallbackView
+                placeholder
             }
         }
     }
 
-    private var fallbackView: some View {
+    private var placeholder: some View {
         LinearGradient(
             colors: [Color.black.opacity(0.25), Color.purple.opacity(0.25), Color.blue.opacity(0.25)],
             startPoint: .topLeading,
@@ -437,12 +389,6 @@ struct Avatar: View {
         .clipShape(Circle())
     }
 }
-
-// MARK: - Bottom Tab Bar
-
-
-
-// MARK: - Preview
 
 #Preview {
     EventsPageView()
