@@ -13,9 +13,11 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import FirebaseAuth
 
 struct CreateEventPage: View {
     @Environment(\.dismiss) private var dismiss
+    var onEventCreated: (() -> Void)? = nil
 
     @State private var eventTitle: String = ""
     @State private var descriptionText: String = ""
@@ -72,7 +74,7 @@ struct CreateEventPage: View {
                     
                     .buttonStyle(.plain)
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .onChange(of: selectedItem) { newItem in
+                    .onChange(of: selectedItem) { _, newItem in
                         guard let newItem else {
                             selectedImageData = nil
                             return
@@ -214,6 +216,10 @@ struct CreateEventPage: View {
 
     private func createEvent() {
         guard !isCreateDisabled else { return }
+        guard let userUID = Auth.auth().currentUser?.uid else {
+            print("Cannot create event: no signed-in user")
+            return
+        }
 
         isCreating = true
 
@@ -235,6 +241,7 @@ struct CreateEventPage: View {
 
         let eventPayload: [String: Any] = [
             "Event_ID": eventID,
+            "User_UID": userUID,
             "Event_Title": eventTitle,
             "Event_Date": formattedDate,
             "Event_Time": formattedTime,
@@ -275,14 +282,27 @@ struct CreateEventPage: View {
                     return
                 }
 
-                if httpResponse.statusCode == 201 {
+                if (200...299).contains(httpResponse.statusCode) {
                     print("Event created successfully!")
+                    resetForm()
+                    onEventCreated?()
                     dismiss()
                 } else {
                     print("Server error:", httpResponse.statusCode)
                 }
             }
         }.resume()
+    }
+
+    private func resetForm() {
+        eventTitle = ""
+        descriptionText = ""
+        location = ""
+        date = ""
+        time = ""
+        eventDate = Date()
+        selectedItem = nil
+        selectedImageData = nil
     }
 }
 
