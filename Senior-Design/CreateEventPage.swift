@@ -13,6 +13,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import FirebaseAuth
 
 struct CreateEventPage: View {
     @Environment(\.dismiss) private var dismiss
@@ -214,6 +215,10 @@ struct CreateEventPage: View {
 
     private func createEvent() {
         guard !isCreateDisabled else { return }
+        guard let userUID = Auth.auth().currentUser?.uid else {
+            print("Cannot create event: no signed-in user")
+            return
+        }
 
         isCreating = true
 
@@ -235,6 +240,7 @@ struct CreateEventPage: View {
 
         let eventPayload: [String: Any] = [
             "Event_ID": eventID,
+            "User_UID": userUID,
             "Event_Title": eventTitle,
             "Event_Date": formattedDate,
             "Event_Time": formattedTime,
