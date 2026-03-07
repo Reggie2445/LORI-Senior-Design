@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:LORI-Senior-Design}/SeniorDesignBackend",
+            "name": "Debug SeniorDesignBackend (SeniorDesignBackend)",
+            "target": "SeniorDesignBackend",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug SeniorDesignBackend (SeniorDesignBackend)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:LORI-Senior-Design}/SeniorDesignBackend",
+            "name": "Release SeniorDesignBackend (SeniorDesignBackend)",
+            "target": "SeniorDesignBackend",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release SeniorDesignBackend (SeniorDesignBackend)"
+        }
+    ]
+}
