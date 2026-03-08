@@ -12,45 +12,6 @@ func routes(_ app: Application) throws {
     let s3 = try S3Client(region: "us-east-1")
     let dynamo = try DynamoDBClient(region: "us-east-1")
 
-    func eventFromItem(_ item: [String: DynamoDBClientTypes.AttributeValue]) -> Event {
-        func stringValue(_ key: String) -> String {
-            if case let .s(value)? = item[key] {
-                return value
-            }
-            return ""
-        }
-
-        func listValue(_ key: String) -> [String] {
-            if case let .l(values)? = item[key] {
-                return values.compactMap {
-                    if case let .s(str) = $0 { return str }
-                    return nil
-                }
-            }
-            return []
-        }
-
-        func optionalStringValue(_ key: String) -> String? {
-            if case let .s(value)? = item[key] {
-                return value
-            }
-            return nil
-        }
-
-        return Event(
-            Event_ID: stringValue("Event_ID"),
-            User_UID: optionalStringValue("User_UID"),
-            Photo_Key: optionalStringValue("Photo_Key"),
-            Event_Title: stringValue("Event_Title"),
-            Event_Date: stringValue("Event_Date"),
-            Event_Time: stringValue("Event_Time"),
-            Event_Location: stringValue("Event_Location"),
-            Event_Description: stringValue("Event_Description"),
-            Event_Attendance: listValue("Event_Attendance"),
-            image_base64: nil
-        )
-    }
-
     // CREATE EVENT
     app.post("events") { req async throws -> HTTPStatus in
         let event = try req.content.decode(Event.self)
@@ -64,10 +25,6 @@ func routes(_ app: Application) throws {
             "Event_Description": .s(event.Event_Description),
             "Event_Attendance": .l(event.Event_Attendance.map { .s($0) })
         ]
-
-        if let userUID = event.User_UID, !userUID.isEmpty {
-            item["User_UID"] = .s(userUID)
-        }
 
         if let base64 = event.image_base64,
            let imageData = Data(base64Encoded: base64) {
@@ -104,62 +61,36 @@ func routes(_ app: Application) throws {
         )
 
         guard let items = result.items else { return [] }
-        return items.map(eventFromItem)
-    }
 
-    // LIST EVENTS FOR A USER UID
-    app.get("events", "user", ":uid") { req async throws -> [Event] in
-        guard let uid = req.parameters.get("uid"), !uid.isEmpty else {
-            throw Abort(.badRequest, reason: "Missing user uid")
-        }
+        return items.map { item in
+            func stringValue(_ key: String) -> String {
+                if case let .s(value)? = item[key] {
+                    return value
+                }
+                return ""
+            }
 
-        let result = try await dynamo.scan(
-            input: ScanInput(
-                expressionAttributeValues: [":uid": .s(uid)],
-                filterExpression: "User_UID = :uid",
-                tableName: tableName
+            func listValue(_ key: String) -> [String] {
+                if case let .l(values)? = item[key] {
+                    return values.compactMap {
+                        if case let .s(str) = $0 { return str }
+                        return nil
+                    }
+                }
+                return []
+            }
+
+            return Event(
+                Event_ID: stringValue("Event_ID"),
+                Event_Title: stringValue("Event_Title"),
+                Event_Date: stringValue("Event_Date"),
+                Event_Time: stringValue("Event_Time"),
+                Event_Location: stringValue("Event_Location"),
+                Event_Description: stringValue("Event_Description"),
+                Event_Attendance: listValue("Event_Attendance"),
+                image_base64: nil
             )
-        )
-
-        guard let items = result.items else { return [] }
-        return items.map(eventFromItem)
-    }
-
-    // GET EVENT PHOTO
-    app.get("events", ":id", "photo") { req async throws -> Response in
-        guard let id = req.parameters.get("id"), !id.isEmpty else {
-            throw Abort(.badRequest, reason: "Missing event id")
         }
-
-        let itemResult = try await dynamo.getItem(
-            input: GetItemInput(
-                key: ["Event_ID": .s(id)],
-                tableName: tableName
-            )
-        )
-
-        let photoKey: String
-        if let item = itemResult.item, case let .s(savedKey)? = item["Photo_Key"], !savedKey.isEmpty {
-            photoKey = savedKey
-        } else {
-            photoKey = "\(id).jpg"
-        }
-
-        let object = try await s3.getObject(
-            input: GetObjectInput(
-                bucket: bucket,
-                key: photoKey
-            )
-        )
-
-        guard let imageData = try await object.body?.readData() else {
-            throw Abort(.notFound, reason: "Photo not found")
-        }
-
-        var response = Response(status: .ok)
-        response.headers.replaceOrAdd(name: .contentType, value: object.contentType ?? "image/jpeg")
-        response.body = .init(data: imageData)
-        return response
     }
 
     // DELETE EVENT
