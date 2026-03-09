@@ -104,12 +104,7 @@ private struct APIEvent: Decodable {
 @MainActor
 final class EventsViewModel: ObservableObject {
     private let eventsAPIURLs: [String] = [
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default/EventReadLambda",
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/EventReadLambda",
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default",
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default/events",
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default/Events",
-        "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/events"
+        "http://127.0.0.1:8080/events"
     ]
 
     @Published var events: [Event] = []
@@ -290,6 +285,7 @@ private struct LambdaProxyEnvelope: Decodable {
 
 struct EventsPageView: View {
     @StateObject private var vm = EventsViewModel()
+    @EnvironmentObject var authVM: AuthViewModel
     @State private var selectedEventId = ""
     @State private var isShowingDetail = false
 
@@ -343,6 +339,7 @@ struct EventsPageView: View {
             .navigationDestination(isPresented: $isShowingDetail) {
                 EventDetailView(eventId: selectedEventId)
                     .environmentObject(vm)
+                    .environmentObject(authVM)
                     .navigationBarBackButtonHidden(true)
             }
 
@@ -357,10 +354,9 @@ struct EventsPageView: View {
 // Drop this in to replace the existing EventDetailView stub in your project.
 // It matches the screenshot: hero image, host row, title, info cards, RSVP button.
 
-import SwiftUI
-
 struct EventDetailView: View {
     let eventId: String
+    @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var vm: EventsViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -532,14 +528,15 @@ struct EventDetailView: View {
 
     private func handleRSVP() async {
         guard let event, rsvpState == .idle else { return }
+        guard let currentUserID = authVM.currentUserID else {
+            rsvpState = .idle
+            print("No logged-in user found")
+            return
+        }
+
         rsvpState = .loading
 
-        // --- POST to your Lambda RSVP endpoint ---
-        // Update the URL below to your actual RSVP Lambda endpoint.
-        // Expected body: { "Event_ID": "<id>", "User_ID": "<userId>" }
-        let rsvpURLString = "https://gbzolouzcg.execute-api.us-east-1.amazonaws.com/default/EventRSVPLambda"
-
-        guard let url = URL(string: rsvpURLString) else {
+        guard let url = URL(string: "http://127.0.0.1:8080/events/rsvp") else {
             rsvpState = .idle
             return
         }
@@ -550,29 +547,35 @@ struct EventDetailView: View {
 
         let body: [String: String] = [
             "Event_ID": event.id,
-            "User_ID": "current_user" // Replace with your actual auth user ID
+            "User_UID": currentUserID
         ]
 
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
 
-            if (200...299).contains(statusCode) {
-                // Success — update local state
-                localPeopleGoing = (localPeopleGoing ?? event.peopleGoing) + 1
-                rsvpState = .confirmed
-
-                // Sync back into the ViewModel so the card shows "GOING"
-                if let idx = vm.events.firstIndex(where: { $0.id == eventId }) {
-                    vm.events[idx].isRSVPed = true
-                    vm.events[idx].peopleGoing += 1
+            guard (200...299).contains(statusCode) else {
+                if let text = String(data: data, encoding: .utf8) {
+                    print("RSVP failed:", text)
                 }
-            } else {
                 rsvpState = .idle
+                return
+            }
+
+            let decoded = try? JSONDecoder().decode(RSVPResponse.self, from: data)
+            let newCount = decoded?.attendanceCount ?? ((localPeopleGoing ?? event.peopleGoing) + 1)
+
+            localPeopleGoing = newCount
+            rsvpState = .confirmed
+
+            if let idx = vm.events.firstIndex(where: { $0.id == eventId }) {
+                vm.events[idx].isRSVPed = true
+                vm.events[idx].peopleGoing = newCount
             }
         } catch {
+            print("RSVP error:", error.localizedDescription)
             rsvpState = .idle
         }
     }
@@ -587,7 +590,7 @@ enum RSVPState: Equatable {
         switch self {
         case .idle:      return "RSVP to Event"
         case .loading:   return "Saving..."
-        case .confirmed: return "You're Going! 🎉"
+        case .confirmed: return "You're Going!"
         }
     }
 
@@ -606,32 +609,6 @@ enum RSVPState: Equatable {
                 endPoint: .trailing
             )
         }
-    }
-}
-
-// MARK: - Preview
-
-#Preview {
-    NavigationStack {
-        EventDetailView(eventId: "preview-1")
-            .environmentObject({
-                let vm = EventsViewModel()
-                vm.events = [
-                    Event(
-                        id: "preview-1",
-                        hostName: "Sarah Chen",
-                        title: "Summer Rooftop Party",
-                        description: "Join us for an unforgettable night under the stars with great music, drinks, and vibes.",
-                        dateText: "Sunday, December 14, 2025 at 20:00",
-                        locationText: "Sky Lounge, Downtown LA",
-                        peopleGoing: 42,
-                        isRSVPed: false,
-                        photoURL: nil,
-                        avatarName: nil
-                    )
-                ]
-                return vm
-            }())
     }
 }
 
@@ -805,6 +782,12 @@ struct Avatar: View {
         }
         .clipShape(Circle())
     }
+}
+
+private struct RSVPResponse: Decodable {
+    let message: String
+    let attendanceCount: Int
+    let alreadyRSVPed: Bool
 }
 
 // MARK: - Bottom Tab Bar

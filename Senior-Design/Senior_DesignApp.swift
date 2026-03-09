@@ -22,12 +22,11 @@ struct Senior_DesignApp: App {
             NavigationStack {
                 if authVM.user != nil {
                     MainTabView()
-                        .environmentObject(authVM)
                 } else {
                     AuthScreen()
-                        .environmentObject(authVM)
                 }
             }
+            .environmentObject(authVM)
         }
     }
 }

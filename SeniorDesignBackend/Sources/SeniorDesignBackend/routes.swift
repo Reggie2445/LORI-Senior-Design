@@ -160,6 +160,60 @@ func routes(_ app: Application) throws {
             alreadyRSVPed: false
         )
     }
+    app.get("users", ":uid", "attending") { req async throws -> [Event] in
+        guard let userID = req.parameters.get("uid") else {
+            throw Abort(.badRequest)
+        }
+
+        let attendanceScan = try await dynamo.scan(
+            input: ScanInput(tableName: attendanceTable)
+        )
+
+        let attendanceItems = attendanceScan.items ?? []
+
+        let matchedEventIDs: [String] = attendanceItems.compactMap { item in
+            guard
+                case let .s(eventID)? = item["Event_ID"],
+                case let .s(attendeeID)? = item["User_UID"],
+                attendeeID == userID
+            else {
+                return nil
+            }
+            return eventID
+        }
+
+        let eventsScan = try await dynamo.scan(
+            input: ScanInput(tableName: eventsTable)
+        )
+
+        let eventItems = eventsScan.items ?? []
+
+        var result: [Event] = []
+
+        for item in eventItems {
+            let eventID = stringValue(from: item, key: "Event_ID")
+
+            guard matchedEventIDs.contains(eventID) else { continue }
+
+            let attendanceCount = try await getAttendanceCount(eventID: eventID)
+
+            let event = Event(
+                Event_ID: eventID,
+                Event_Title: stringValue(from: item, key: "Event_Title"),
+                Event_Date: stringValue(from: item, key: "Event_Date"),
+                Event_Time: stringValue(from: item, key: "Event_Time"),
+                Event_Location: stringValue(from: item, key: "Event_Location"),
+                Event_Description: stringValue(from: item, key: "Event_Description"),
+                User_UID: stringValue(from: item, key: "User_UID"),
+                Event_Attendance: attendanceCount,
+                image_base64: nil
+            )
+
+            result.append(event)
+        }
+
+        return result
+    }
 
     // MARK: - DELETE EVENT
 
