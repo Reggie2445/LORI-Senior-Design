@@ -14,11 +14,14 @@ final class AuthViewModel: ObservableObject {
     @Published var user: User?
     @Published var errorMessage: String = ""
 
+    var currentUserID: String? {
+        user?.uid
+    }
+
     init() {
-        try? Auth.auth().signOut()   // 👈 add this temporarily
         self.user = Auth.auth().currentUser
 
-        Auth.auth().addStateDidChangeListener { _, user in
+        _ = Auth.auth().addStateDidChangeListener { _, user in
             self.user = user
         }
     }

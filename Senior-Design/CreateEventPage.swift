@@ -16,6 +16,7 @@ import UIKit
 
 struct CreateEventPage: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var authVM: AuthViewModel
 
     @State private var eventTitle: String = ""
     @State private var descriptionText: String = ""
@@ -72,7 +73,7 @@ struct CreateEventPage: View {
                     
                     .buttonStyle(.plain)
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .onChange(of: selectedItem) { newItem in
+                    .onChange(of: selectedItem) { _, newItem in
                         guard let newItem else {
                             selectedImageData = nil
                             return
@@ -214,23 +215,23 @@ struct CreateEventPage: View {
 
     private func createEvent() {
         guard !isCreateDisabled else { return }
+        guard let currentUserID = authVM.currentUserID else {
+            print("No logged-in user found")
+            return
+        }
 
         isCreating = true
 
-        // Generate Event ID
         let eventID = UUID().uuidString
 
-        // Format Date
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let formattedDate = dateFormatter.string(from: eventDate)
 
-        // Format Time
         let timeFormatter = DateFormatter()
         timeFormatter.dateFormat = "HH:mm"
         let formattedTime = timeFormatter.string(from: eventDate)
 
-        // Convert image to base64
         let base64Image = selectedImageData?.base64EncodedString()
 
         let eventPayload: [String: Any] = [
@@ -240,7 +241,7 @@ struct CreateEventPage: View {
             "Event_Time": formattedTime,
             "Event_Location": location,
             "Event_Description": descriptionText,
-            "Event_Attendance": [],
+            "User_UID": currentUserID,
             "image_base64": base64Image as Any
         ]
 
@@ -266,7 +267,7 @@ struct CreateEventPage: View {
                 isCreating = false
 
                 if let error = error {
-                    print("Network error:", error)
+                    print("Network error:", error.localizedDescription)
                     return
                 }
 
@@ -280,6 +281,9 @@ struct CreateEventPage: View {
                     dismiss()
                 } else {
                     print("Server error:", httpResponse.statusCode)
+                    if let data = data, let text = String(data: data, encoding: .utf8) {
+                        print("Server response:", text)
+                    }
                 }
             }
         }.resume()
