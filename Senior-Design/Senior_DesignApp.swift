@@ -12,6 +12,7 @@ import FirebaseCore
 struct Senior_DesignApp: App {
 
     @StateObject private var authVM = AuthViewModel()
+    @AppStorage("appAppearance") private var appAppearance = 0
 
     init() {
         FirebaseApp.configure()
@@ -27,6 +28,18 @@ struct Senior_DesignApp: App {
                 }
             }
             .environmentObject(authVM)
+            .preferredColorScheme(preferredColorScheme)
+        }
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch appAppearance {
+        case 1:
+            return .light
+        case 2:
+            return .dark
+        default:
+            return nil
         }
     }
 }

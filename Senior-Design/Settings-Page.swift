@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var authVM: AuthViewModel
+    @State private var showLogoutError = false
+    @AppStorage("appAppearance") private var appAppearance = 0
 
     var body: some View {
         NavigationStack {
@@ -44,9 +46,35 @@ struct SettingsView: View {
                         .padding(.horizontal)
 
                     SettingsCard {
-                        SettingsRow(icon: "paintbrush.circle", title: "Appearance", subtitle: "Theme, app icon") {
-                            // placeholder
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "circle.lefthalf.filled")
+                                    .font(.system(size: 22))
+                                    .frame(width: 34, height: 34)
+                                    .foregroundStyle(Color(.systemGray))
+                                    .background(Color(.tertiarySystemBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Appearance")
+                                        .font(.body)
+                                        .fontWeight(.semibold)
+                                    Text("System, light, or dark")
+                                        .font(.footnote)
+                                        .foregroundStyle(Color(.systemGray))
+                                }
+                            }
+
+                            Picker("Appearance", selection: $appAppearance) {
+                                Text("System").tag(0)
+                                Text("Light").tag(1)
+                                Text("Dark").tag(2)
+                            }
+                            .pickerStyle(.segmented)
                         }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 14)
+
                         Divider().padding(.leading, 52)
 
                         SettingsRow(icon: "globe", title: "Language", subtitle: "English (US)") {
@@ -84,7 +112,8 @@ struct SettingsView: View {
 
                     SettingsCard {
                         SettingsRow(icon: "arrow.right.square", title: "Log Out", subtitle: nil, titleColor: .red) {
-                            // placeholder
+                            authVM.signOut()
+                            showLogoutError = !authVM.errorMessage.isEmpty
                         }
                         Divider().padding(.leading, 52)
 
@@ -95,11 +124,18 @@ struct SettingsView: View {
 
                     Spacer(minLength: 20)
                 }
-                .padding(.top, 10)
+                .padding(.top, 4)
             }
             .background(Color(.systemBackground))
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .alert("Could Not Log Out", isPresented: $showLogoutError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(authVM.errorMessage)
+            }
         }
     }
 }
@@ -133,7 +169,7 @@ private struct SettingsRow: View {
                     .font(.system(size: 22))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Color(.systemGray))
-                    .background(Color.white.opacity(0.75))
+                    .background(Color(.tertiarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -164,4 +200,5 @@ private struct SettingsRow: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(AuthViewModel())
 }

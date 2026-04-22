@@ -17,6 +17,7 @@ import UIKit
 struct CreateEventPage: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authVM: AuthViewModel
+    var onEventCreated: (() -> Void)? = nil
 
     @State private var eventTitle: String = ""
     @State private var descriptionText: String = ""
@@ -278,7 +279,12 @@ struct CreateEventPage: View {
 
                 if httpResponse.statusCode == 201 {
                     print("Event created successfully!")
-                    dismiss()
+                    clearForm()
+                    if let onEventCreated {
+                        onEventCreated()
+                    } else {
+                        dismiss()
+                    }
                 } else {
                     print("Server error:", httpResponse.statusCode)
                     if let data = data, let text = String(data: data, encoding: .utf8) {
@@ -287,6 +293,15 @@ struct CreateEventPage: View {
                 }
             }
         }.resume()
+    }
+
+    private func clearForm() {
+        eventTitle = ""
+        descriptionText = ""
+        location = ""
+        selectedItem = nil
+        selectedImageData = nil
+        eventDate = Date()
     }
 }
 

@@ -9,5 +9,6 @@ struct Event: Content {
     var Event_Description: String
     var User_UID: String
     var Event_Attendance: Int?
+    var Photo_URL: String?
     var image_base64: String?
 }
