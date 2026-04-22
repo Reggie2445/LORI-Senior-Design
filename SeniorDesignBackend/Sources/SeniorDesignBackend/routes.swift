@@ -41,6 +41,16 @@ func routes(_ app: Application) throws {
         return result.items?.count ?? 0
     }
 
+    @Sendable
+    func photoURLString(
+        from item: [String: DynamoDBClientTypes.AttributeValue]
+    ) -> String? {
+        guard case let .s(photoKey)? = item["Photo_Key"], !photoKey.isEmpty else {
+            return nil
+        }
+        return "https://\(bucket).s3.amazonaws.com/\(photoKey)"
+    }
+
     // MARK: - CREATE EVENT
 
     app.post("events") { req async throws -> HTTPStatus in
@@ -108,6 +118,7 @@ func routes(_ app: Application) throws {
                 Event_Description: stringValue(from: item, key: "Event_Description"),
                 User_UID: stringValue(from: item, key: "User_UID"),
                 Event_Attendance: attendanceCount,
+                Photo_URL: photoURLString(from: item),
                 image_base64: nil
             )
 
@@ -206,6 +217,7 @@ func routes(_ app: Application) throws {
                 Event_Description: stringValue(from: item, key: "Event_Description"),
                 User_UID: stringValue(from: item, key: "User_UID"),
                 Event_Attendance: attendanceCount,
+                Photo_URL: photoURLString(from: item),
                 image_base64: nil
             )
 

@@ -16,15 +16,15 @@ struct AuthScreen: View {
 
     var body: some View {
         ZStack {
-            Color.blue.ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             Circle()
                 .scale(1.7)
-                .foregroundColor(.white.opacity(0.15))
+                .foregroundStyle(Color.accentColor.opacity(0.10))
 
             Circle()
                 .scale(1.35)
-                .foregroundColor(.white)
+                .foregroundStyle(Color(.secondarySystemBackground))
 
             VStack(spacing: 14) {
                 Text(isSignUp ? "Sign Up" : "Login")
@@ -38,7 +38,7 @@ struct AuthScreen: View {
                     .autocorrectionDisabled(true)
                     .padding()
                     .frame(width: 300, height: 50)
-                    .background(Color.black.opacity(0.05))
+                    .background(Color(.tertiarySystemBackground))
                     .cornerRadius(10)
 
                 SecureField("Password", text: $password)
@@ -46,7 +46,7 @@ struct AuthScreen: View {
                     .autocorrectionDisabled(true)
                     .padding()
                     .frame(width: 300, height: 50)
-                    .background(Color.black.opacity(0.05))
+                    .background(Color(.tertiarySystemBackground))
                     .cornerRadius(10)
 
                 Button(isSignUp ? "Create Account" : "Login") {
@@ -58,9 +58,9 @@ struct AuthScreen: View {
                         }
                     }
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(width: 300, height: 50)
-                .background(Color.blue)
+                .background(Color.accentColor)
                 .cornerRadius(10)
                 .padding(.top, 6)
 
@@ -68,7 +68,7 @@ struct AuthScreen: View {
                     authVM.errorMessage = ""
                     isSignUp.toggle()
                 }
-                .foregroundColor(.black.opacity(0.65))
+                .foregroundStyle(.secondary)
                 .padding(.top, 4)
 
                 if !authVM.errorMessage.isEmpty {

@@ -30,6 +30,7 @@ private struct APIEvent: Decodable {
     let eventTime: String
     let eventTitle: String
     let photoURL: String?
+    let photoKey: String?
     let attendanceCount: Int
 
     enum CodingKeys: String, CodingKey {
@@ -40,6 +41,7 @@ private struct APIEvent: Decodable {
         case eventTime = "Event_Time"
         case eventTitle = "Event_Title"
         case photoURL = "Photo_URL"
+        case photoKey = "Photo_Key"
         case eventAttendance = "Event_Attendance"
     }
 
@@ -52,6 +54,7 @@ private struct APIEvent: Decodable {
         eventTime = APIEvent.decodeString(container, forKey: .eventTime) ?? ""
         eventTitle = APIEvent.decodeString(container, forKey: .eventTitle) ?? "Untitled Event"
         photoURL = try container.decodeIfPresent(String.self, forKey: .photoURL)
+        photoKey = try container.decodeIfPresent(String.self, forKey: .photoKey)
 
         if let attendees = try? container.decode([String].self, forKey: .eventAttendance) {
             attendanceCount = attendees.count
@@ -84,7 +87,8 @@ private struct APIEvent: Decodable {
     }
 
     func toEvent() -> Event {
-        Event(
+        let resolvedPhotoURLString = photoURL ?? photoKey.map { "https://event-photos-test.s3.amazonaws.com/\($0)" }
+        return Event(
             id: eventID,
             hostName: "LORI",
             title: eventTitle,
@@ -93,7 +97,7 @@ private struct APIEvent: Decodable {
             locationText: eventLocation,
             peopleGoing: attendanceCount,
             isRSVPed: false,
-            photoURL: photoURL.flatMap(URL.init(string:)),
+            photoURL: resolvedPhotoURLString.flatMap(URL.init(string:)),
             avatarName: nil
         )
     }
@@ -160,7 +164,8 @@ final class EventsViewModel: ObservableObject {
                 }
 
                 let decodedEvents = try decodeEvents(from: data)
-                let sortedEvents = sortChronologically(decodedEvents)
+                let upcomingEvents = filterUpcomingEvents(decodedEvents)
+                let sortedEvents = sortChronologically(upcomingEvents)
                 events = sortedEvents.map { $0.toEvent() }
                 isLoading = false
                 return
@@ -229,9 +234,29 @@ final class EventsViewModel: ObservableObject {
         }
     }
 
+    private func filterUpcomingEvents(_ apiEvents: [APIEvent]) -> [APIEvent] {
+        let now = Date()
+        return apiEvents.filter { event in
+            guard let eventDate = parsedDate(for: event) else { return false }
+            return eventDate >= now
+        }
+    }
+
     private func parsedDate(for event: APIEvent) -> Date? {
         let date = event.eventDate.trimmingCharacters(in: .whitespacesAndNewlines)
         let time = event.eventTime.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !date.isEmpty {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let parsed = iso.date(from: date) {
+                return parsed
+            }
+            iso.formatOptions = [.withInternetDateTime]
+            if let parsed = iso.date(from: date) {
+                return parsed
+            }
+        }
 
         let combinedFormats = [
             "yyyy-MM-dd HH:mm",
@@ -271,6 +296,11 @@ final class EventsViewModel: ObservableObject {
             if let parsed = formatter.date(from: date) {
                 return parsed
             }
+        }
+
+        if !date.isEmpty,
+           let timestamp = TimeInterval(date) {
+            return Date(timeIntervalSince1970: timestamp)
         }
 
         return nil
